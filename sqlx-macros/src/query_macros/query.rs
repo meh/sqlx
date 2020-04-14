@@ -21,7 +21,7 @@ where
     <C::Database as Database>::TypeInfo: Display,
 {
     let describe = input.describe_validate(&mut conn).await?;
-    let sql = &input.source;
+    let sql = &input.src;
 
     let args = args::quote_args(&input, &describe, true)?;
 

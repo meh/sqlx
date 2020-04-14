@@ -3,7 +3,7 @@ use std::fmt::Display;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 
-pub use input::{QueryAsMacroInput, QueryMacroInput};
+pub use input::QueryMacroInput;
 pub use query::expand_query;
 
 use crate::database::DatabaseExt;
@@ -12,9 +12,12 @@ use sqlx::connection::Connection;
 use sqlx::database::Database;
 
 mod args;
+mod data;
 mod input;
 mod output;
 mod query;
+
+pub fn expand_input(input: QueryMacroInput) -> crate::Result<TokenStream> {}
 
 pub async fn expand_query_file<C: Connection>(
     input: QueryMacroInput,

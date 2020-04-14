@@ -24,22 +24,7 @@ mod runtime;
 
 use query_macros::*;
 
-#[cfg(feature = "runtime-tokio")]
-lazy_static::lazy_static! {
-    static ref BASIC_RUNTIME: tokio::runtime::Runtime = {
-        tokio::runtime::Builder::new()
-            .threaded_scheduler()
-            .enable_io()
-            .enable_time()
-            .build()
-            .expect("failed to build tokio runtime")
-    };
-}
 
-#[cfg(feature = "runtime-tokio")]
-fn block_on<F: std::future::Future>(future: F) -> F::Output {
-    BASIC_RUNTIME.enter(|| futures::executor::block_on(future))
-}
 
 fn macro_result(tokens: proc_macro2::TokenStream) -> TokenStream {
     quote!(
@@ -122,6 +107,23 @@ macro_rules! async_macro (
         }
     }}
 );
+
+#[proc_macro]
+pub fn expand_query_macro(input: TokenStream) -> TokenStream {
+    let input = syn::parse_macro_input!(input as QueryMacroInput);
+
+    match query_macros::expand_input(input) {
+        Ok(ts) => ts.into(),
+        Err(e) => {
+            if let Some(parse_err) = e.downcast_ref::<syn::Error>() {
+                macro_result(parse_err.to_compile_error())
+            } else {
+                let msg = e.to_string();
+                macro_result(quote!(compile_error!(#msg)))
+            }
+        }
+    }
+}
 
 #[proc_macro]
 #[allow(unused_variables)]

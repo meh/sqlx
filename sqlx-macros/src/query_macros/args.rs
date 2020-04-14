@@ -5,14 +5,15 @@ use syn::Expr;
 use quote::{quote, quote_spanned, ToTokens};
 use sqlx::describe::Describe;
 
+use super::data::QueryData;
+use super::QueryMacroInput;
 use crate::database::{DatabaseExt, ParamChecking};
-use crate::query_macros::QueryMacroInput;
 
 /// Returns a tokenstream which typechecks the arguments passed to the macro
 /// and binds them to `DB::Arguments` with the ident `query_args`.
 pub fn quote_args<DB: DatabaseExt>(
     input: &QueryMacroInput,
-    describe: &Describe<DB>,
+    data: &QueryData,
     checked: bool,
 ) -> crate::Result<TokenStream> {
     let db_path = DB::db_path();
@@ -26,23 +27,16 @@ pub fn quote_args<DB: DatabaseExt>(
     let arg_name = &input.arg_names;
 
     let args_check = if checked && DB::PARAM_CHECKING == ParamChecking::Strong {
-        describe
-            .param_types
+        data
+            .input_types
             .iter()
             .zip(input.arg_names.iter().zip(&input.arg_exprs))
             .enumerate()
             .map(|(i, (param_ty, (name, expr)))| -> crate::Result<_> {
                 // TODO: We could remove the ParamChecking flag and just filter to only test params that are non-null
-                let param_ty = param_ty.as_ref().unwrap();
 
                 let param_ty = get_type_override(expr)
-                    .or_else(|| {
-                        Some(
-                            DB::param_type_for_id(&param_ty)?
-                                .parse::<proc_macro2::TokenStream>()
-                                .unwrap(),
-                        )
-                    })
+                    .or_else(|| Some(param_ty.as_deref()?.parse().unwrap()))
                     .ok_or_else(|| {
                         if let Some(feature_gate) = <DB as DatabaseExt>::get_feature_gate(&param_ty) {
                             format!(
